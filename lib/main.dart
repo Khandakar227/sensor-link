@@ -300,7 +300,7 @@ class _HomePageState extends State<HomePage> {
       ipAddress = await getIpAddress();
     } catch (e) {
       logger.e('Failed to get IP address: $e');
-      showTextToast(context, 'Failed to get IP address: $e}');
+      showTextToast(context, 'Failed to get IP address: $e');
     }
     setState(() {
       _ipAddress = ipAddress;
