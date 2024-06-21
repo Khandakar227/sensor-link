@@ -1,6 +1,6 @@
-# flutter_app
+# Sensor Link
 
-A new Flutter project.
+An app that transmit sensor data from phone to local server at port 4040.
 
 ## Getting Started
 
