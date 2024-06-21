@@ -3,7 +3,7 @@
 Sensor Link is a mobile application that turns your smartphone into a server, broadcasting IMU (Inertial Measurement Unit) sensor data over your local network at port 4040.
 
 ## Release APK
-/build/app/outputs/apk/release/app-release.apk
+[/exports/release/app-release.apk](/exports/release/app-release.apk)
 
 ## Features
 
