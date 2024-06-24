@@ -5,19 +5,15 @@ import 'dart:isolate';
 
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/material.dart';
-import 'package:logger/logger.dart';
 import 'package:sensorlink/services/foreground_service.dart';
 import 'package:sensorlink/utils.dart';
 import 'package:sensors_plus/sensors_plus.dart';
 import 'package:motion_sensors/motion_sensors.dart' as motion_sensors;
 import 'package:flutter_foreground_task/flutter_foreground_task.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'components/imu_card.dart';
 import 'models/SensorData.dart';
-
-var logger = Logger(
-  printer: PrettyPrinter(),
-);
 
 @pragma('vm:entry-point')
 void startCallback() {
@@ -58,7 +54,8 @@ class HomePage extends StatefulWidget {
 
 class _HomePageState extends State<HomePage> {
   HttpServer? server;
-  bool _isServerRunning = false;
+  int _transmissionDuration = 100;
+  bool _isServerRunning = false, _isDurationUpdated = false;
   String? _ipAddress;
   IMUData? _accelerometerData, _gyroscopeData, _magnetometerData, _rotationData;
   ReceivePort? _receivePort;
@@ -73,9 +70,12 @@ class _HomePageState extends State<HomePage> {
   final gyroscopeEvent = gyroscopeEventStream();
   final magnetometerEvent = magnetometerEventStream();
 
+  final prefs = SharedPreferences.getInstance();
+
   @override
   void initState() {
     super.initState();
+    _loadTransmissionDuration();
     _startWebSocketServer();
 
     _connectivityStream = _connectivity.onConnectivityChanged;
@@ -92,9 +92,7 @@ class _HomePageState extends State<HomePage> {
     motion_sensors.motionSensors.absoluteOrientation
         .listen(onAbsoluteOrientationData);
 
-    Timer.periodic(const Duration(milliseconds: 100), (timer) {
-      _broadcastSensorData();
-    });
+    _initTimer();
 
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       await _requestPermissionForAndroid();
@@ -135,6 +133,17 @@ class _HomePageState extends State<HomePage> {
       logger.i('Requesting notification permission for Android 13 and higher');
       await FlutterForegroundTask.requestNotificationPermission();
     }
+  }
+
+  void _initTimer() {
+    Timer.periodic(Duration(milliseconds: _transmissionDuration), (timer) {
+      if (_isDurationUpdated) {
+        timer.cancel();
+        _isDurationUpdated = false;
+        _initTimer();
+      }
+      _broadcastSensorData();
+    });
   }
 
   void _initForegroundTask() {
@@ -340,10 +349,32 @@ class _HomePageState extends State<HomePage> {
   onAbsoluteOrientationData(motion_sensors.AbsoluteOrientationEvent event) {
     setState(() {
       _rotationData = IMUData(
-        x: toDeg(event.pitch),
-        y: toDeg(event.yaw),
-        z: toDeg(event.roll),
+        x: event.pitch,
+        y: event.yaw,
+        z: event.roll,
       );
+    });
+  }
+
+  void _loadTransmissionDuration() {
+    prefs.then((p) async {
+      final interval = p.getInt('interval');
+      if (interval != null) {
+        setState(() {
+          _transmissionDuration = interval;
+          _isDurationUpdated = true;
+        });
+      }
+    });
+  }
+
+  void setInterval(int interval) {
+    setState(() {
+      _transmissionDuration = interval;
+      _isDurationUpdated = true;
+    });
+    prefs.then((p) async {
+      await p.setInt('interval', _transmissionDuration);
     });
   }
 
@@ -353,6 +384,13 @@ class _HomePageState extends State<HomePage> {
         appBar: AppBar(
           backgroundColor: Theme.of(context).colorScheme.inversePrimary,
           title: Text(widget.title),
+          actions: [
+            IconButton(
+              icon: const Icon(Icons.settings),
+              onPressed: () => showSettingsModalDialog(
+                  context, _transmissionDuration, setInterval),
+            ),
+          ],
         ),
         body: SafeArea(
           child: SingleChildScrollView(
@@ -401,7 +439,6 @@ class _HomePageState extends State<HomePage> {
                     x: _rotationData?.x ?? 0,
                     y: _rotationData?.y ?? 0,
                     z: _rotationData?.z ?? 0,
-                    sufffix: '°',
                   ),
                 ),
               ],

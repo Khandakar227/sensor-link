@@ -43,6 +43,7 @@ dependencies:
       ref: f172fb2122d9efd8a5aebecb1a21948d802253d8
   flutter_launcher_icons: ^0.13.1
   flutter_foreground_task: ^6.5.0
+  shared_preferences: ^2.2.3
 
 dev_dependencies:
   flutter_test:
